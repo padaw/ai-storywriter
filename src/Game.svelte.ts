@@ -1,12 +1,17 @@
 export class Game {
     static BASE_STORY = [
-        "Last weekend, I was cleaning my room when I found a small, old key under my bed. It looked very strange—it was golden and had strange symbols on it. I didn’t know where it came from, but I felt excited. Maybe it opened something special!",
-        'I showed the key to my best friend, Emma. She said, "Wow! Maybe it’s a treasure key! Let’s find out what it opens." We thought about where to start looking. There were three places we could check: the old tree in the park, the dusty box in the attic, or the locked drawer in the school library.',
+        "Emma loved rainy days. She sat by the window with a cup of tea, watching the raindrops slide down the glass. It was a perfect day for reading. She picked up her book, but just as she opened it, the doorbell rang.",
+        "She wasn’t expecting anyone. Curious, she walked to the door and opened it. There was no one outside. Only a small, white envelope lay on the welcome mat.",
+        "Emma picked it up and looked around, but the street was empty. She stepped inside and carefully opened the envelope. Inside was a note, written in elegant handwriting:",
+        '"Meet me at the old oak tree at midnight. Trust me."',
+        "Emma’s heart skipped a beat. Who had sent this? And why?",
+        "She thought for a moment. The old oak tree was in the park near her house. It was a quiet place, especially at night. Should she go? It could be dangerous… but it could also be something exciting.",
+        "Emma took a deep breath and looked at the note again. She had a decision to make.",
     ];
     static BASE_CHOICES = [
-        "Go to the park and check the old tree.",
-        "Go to the attic and open the dusty box.",
-        "Go to the school library and try the locked drawer.",
+        "Go to the old oak tree at midnight",
+        "Ignore the letter and stay home",
+        "Ask a friend for help",
     ];
 
     private url =
@@ -15,9 +20,9 @@ export class Game {
     iterations = 0;
     finished = $state(false);
     pending = $state(false);
-    lines = $state<Line[]>(Game.BASE_STORY.map(t => ({text: t})));
+    lines = $state<Line[]>(Game.BASE_STORY.map((t) => ({ text: t })));
     choices = $state(Game.BASE_CHOICES);
-    question = $state("What should we do next?");
+    question = $state("What should Emma do next?");
 
     container?: HTMLDivElement;
 
@@ -85,11 +90,30 @@ export class Game {
     }
 
     private makePrompt(choice: string): string {
-        return `
-            You are a storywriter for an EFL game designed for 13-year-old A2 English learners. Continue a story based on user choices. The user has made ${this.iterations} choices so far, make sure to finish the story at most 4 choices. Use age-appropriate language, avoid sensitive topics, and focus on Simple Past Tense. Continue the story in at most 2 paragraphs long passages, and if it didn't reach the end yet, offer 3 choices for the user to make. Format responses as compressed JSON: {"finished": boolean, "text": [...], "question": "...", "choices": [...]}.
-            This is the story so far: '${this.lines.join()}'
-            The last question was: '${this.question}'
-            And the user's answer was: '${choice}'
-        `.trim();
+        const context = `
+                The story so far: '${this.lines.filter(line => "text" in line).map(line => line.text).join()}'
+                The question for the user was: '${this.question}'
+                The user made this choice: '${choice}'
+
+                Keep it short: 2 paragraphs at most.
+                Use Simple Past Tense: Focus on this grammar topic throughout the story.
+                Use A2 level English.
+                Avoid sensitive topics, bad language, or overly childish themes.
+        `
+        if (this.iterations > 3) {
+            return `
+                Finish this story considering the user's choice.
+                ${context}
+
+                Respond in JSON: {"finished": true, text: [...paragraphs]}
+            `
+        } else {
+            return `
+                Continue this story based on user's choice. Ask a question and give them 3 choices to further continue the story.
+                ${context}
+
+                Respond in JSON: {"finished": false, text: [...paragraphs], question: "...", choices: [...choices]}
+            `
+        }
     }
 }

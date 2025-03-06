@@ -21,7 +21,7 @@
         bind:this={container}
         class="grow text-justify w-full border border-stone-600 rounded-lg p-4 shadow-md shadow-black/50 bg-[#FCF5E5] overflow-y-scroll"
     >
-        <h1 class="font-bold text-xl leading-10">The Mysterious Key</h1>
+        <h1 class="font-bold text-xl leading-10">The Mysterious Letter</h1>
         <div class="flex flex-col gap-2">
             {#each game.lines as line}
                 {#if "question" in line}

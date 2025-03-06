@@ -34,7 +34,7 @@
                 {/if}
             {/each}
             {#if game.finished}
-                <div class="text-center text-xl-leading-10 font-bold">
+                <div class="text-center text-xl leading-10 font-bold">
                     THE END
                 </div>
             {:else if game.pending}

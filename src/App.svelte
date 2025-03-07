@@ -1,17 +1,16 @@
 <script lang="ts">
-    import ChoiceButton from "./lib/ChoiceButton.svelte";
-    import { Game } from "./Game.svelte";
-    import { onMount } from "svelte";
+    import ChoiceButton from "./lib/components/ChoiceButton.svelte";
+    import { Game, title, getLetter } from "./lib/game.svelte";
 
     const game = new Game();
-    const names = ["A", "B", "C"];
-    const colors = ["blue", "rose", "purple"] as const;
 
     let container: HTMLDivElement;
 
-    onMount(() => {
-        game.container = container;
-    });
+    function afterChoice() {
+        setTimeout(() => {
+            container.scroll({ top: 100000 });
+        }, 100);
+    }
 </script>
 
 <main
@@ -21,7 +20,7 @@
         bind:this={container}
         class="grow text-justify w-full border border-stone-600 rounded-lg p-4 shadow-md shadow-black/50 bg-[#FCF5E5] overflow-y-scroll"
     >
-        <h1 class="font-bold text-xl leading-10">The Mysterious Letter</h1>
+        <h1 class="font-bold text-xl leading-10">{title}</h1>
         <div class="flex flex-col gap-2">
             {#each game.lines as line}
                 {#if "question" in line}
@@ -43,7 +42,7 @@
                 <u class="font-bold">{game.question}</u>
                 <div class="flex flex-col gap-1">
                     {#each game.choices as choice, i}
-                        <div><b>{names[i]})</b> <span>{choice}</span></div>
+                        <div><b>{getLetter(i)})</b> <span>{choice}</span></div>
                     {/each}
                 </div>
             {/if}
@@ -53,13 +52,10 @@
         <div class="shrink-0 flex w-full gap-1">
             {#each game.choices as _, i}
                 <ChoiceButton
-                    action={() => game.makeChoice(i)}
-                    color={colors[i]}>{names[i]}</ChoiceButton
-                >
+                    action={() => game.post(i, afterChoice)}
+                    idx={i}
+                />
             {/each}
         </div>
     {/if}
 </main>
-
-<style>
-</style>

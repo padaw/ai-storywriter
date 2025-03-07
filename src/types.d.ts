@@ -1,12 +1,20 @@
-declare interface AIResponse {
-    finished: boolean;
-    text: string[];
-    question: string;
-    choices: string[];
-}
+declare type AIResponse =
+    | {
+          finished: false;
+          text: string[];
+          question: string;
+          choices: string[];
+      }
+    | {
+          finished: true;
+          text: string[];
+      };
 
 declare type Line =
     | {
           text: string;
       }
-    | { question: string; answer: string };
+    | {
+          question: string;
+          answer: string;
+      };

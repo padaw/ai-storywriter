@@ -1,20 +1,19 @@
 <script lang="ts">
-    import type { Snippet } from "svelte";
+    import { getLetter } from "../game.svelte";
 
-    let { action, color, children } = $props<{
-        color: "purple" | "blue" | "rose";
+    let { action, idx } = $props<{
         action: Function;
-        children: Snippet;
+        idx: number;
     }>();
 </script>
 
 <button
     onclick={action}
-    class:purple={color === "purple"}
-    class:blue={color === "blue"}
-    class:rose={color === "rose"}
+    class:purple={idx === 0}
+    class:blue={idx === 1}
+    class:rose={idx > 1}
     style="text-shadow: 1px 1px 1px #000; transition-duration: 50ms;"
-    >{@render children()}</button
+    >{getLetter(idx)}</button
 >
 
 <style>

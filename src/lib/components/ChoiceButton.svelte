@@ -1,32 +1,34 @@
 <script lang="ts">
-    import { getLetter } from "../game.svelte";
+    import type { Snippet } from "svelte";
 
-    let { action, idx } = $props<{
+    let { num, children, action, active, fullsize } = $props<{
+        num: number;
         action: Function;
-        idx: number;
+        active?: boolean;
+        children: Snippet;
+        fullsize?: boolean;
     }>();
 </script>
 
 <button
+    class="text-start max-w-full rounded-lg px-2 py-1 leading-6 transition-all hover:bg-orange-200"
+    class:w-max={!fullsize}
     onclick={action}
-    class:purple={idx === 0}
-    class:blue={idx === 1}
-    class:rose={idx > 1}
-    style="text-shadow: 1px 1px 1px #000; transition-duration: 50ms;"
-    >{getLetter(idx)}</button
+    class:active
 >
+    <div class="flex gap-1 w-full">
+        <b>{num}.-</b>
+        <div class="grow">
+            {@render children()}
+        </div>
+    </div>
+</button>
 
 <style>
-    button {
-        @apply transition-all font-bold text-xl grow text-white leading-10 border rounded-sm shadow-md shadow-black/50;
+    .active {
+        @apply text-black bg-orange-300 font-bold;
     }
-    button.purple {
-        @apply bg-purple-600 border-purple-700 hover:bg-purple-800 hover:border-purple-500 active:bg-purple-900;
-    }
-    button.blue {
-        @apply bg-blue-600 border-blue-700 hover:bg-blue-800 hover:border-blue-500 active:bg-blue-900;
-    }
-    button.rose {
-        @apply bg-rose-600 border-rose-700 hover:bg-rose-800 hover:border-rose-500 active:bg-rose-900;
+    .active:hover {
+        @apply bg-orange-300;
     }
 </style>

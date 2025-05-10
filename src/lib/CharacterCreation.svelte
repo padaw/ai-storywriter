@@ -32,9 +32,9 @@
     } from "./components/IconButton.svelte";
     import {
         type Character,
-        Game,
         type Gender,
         genders,
+        setup,
         traits,
     } from "./core.svelte";
     import PlayButton from "./components/PlayButton.svelte";
@@ -49,7 +49,7 @@
             alert("Please write all travelers' names.");
             return;
         }
-        Game.get().chars = creations;
+        setup.chars = creations;
     }
 
     function handlePlayerCountChange(

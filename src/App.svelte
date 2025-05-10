@@ -1,12 +1,10 @@
 <script lang="ts">
-    import { Game } from "./lib/core.svelte";
     import CharacterCreation from "./lib/CharacterCreation.svelte";
     import IntentSelection from "./lib/IntentSelection.svelte";
     import Story from "./lib/Story.svelte";
     import Loading from "./lib/Loading.svelte";
     import D20Roll from "./lib/D20Roll.svelte";
-
-    const game = Game.get();
+    import { data, setup } from "./lib/core.svelte";
 </script>
 
 <main
@@ -14,15 +12,15 @@
 >
     <div
         class="transition-all relative min-h-96 h-max grow text-justify w-full border border-stone-600 rounded-lg p-4 shadow-md shadow-black/50 bg-[#FCF5E5] overflow-y-scroll"
-        class:pointer-events-none={game.pending && !game.choiceRoll}
+        class:pointer-events-none={data.pending}
     >
-        {#if game.choiceRoll}
-            <D20Roll roll={game.choiceRoll} />
-        {:else if game.pending}
+        {#if data.choiceRoll && !data.choiceRoll.isSeen}
+            <D20Roll roll={data.choiceRoll} />
+        {:else if data.pending}
             <Loading />
-        {:else if game.passage}
-            <Story />
-        {:else if !game.chars.length}
+        {:else if data.chapter}
+            <Story chapter={data.chapter} />
+        {:else if !setup.chars.length}
             <div class="w-full flex flex-col gap-4">
                 <CharacterCreation />
             </div>

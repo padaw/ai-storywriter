@@ -1,6 +1,6 @@
 <script lang="ts">
     import PlayButton from "./components/PlayButton.svelte";
-    import { Game, intents, type Intent } from "./core.svelte";
+    import { advance, intents, setup, type Intent } from "./core.svelte";
     import boatImg from "../../assets/boat.webp";
     import ChoiceButton from "./components/ChoiceButton.svelte";
 
@@ -12,11 +12,11 @@
             alert("Please name your boat.");
             return;
         }
-        const game = Game.get();
-        game.intent = chosenIntent;
-        game.boat = boatName;
 
-        game.continue();
+        setup.boatName = boatName;
+        setup.intent = chosenIntent;
+
+        advance();
     }
 </script>
 

@@ -1,12 +1,20 @@
-// setup a server to handle requests
-// setup billing for the api
+import {
+    makeChapterPrompt,
+    makeEndingPrompt,
+    makeIntroPrompt,
+    systemPrompt,
+} from "../prompts";
+import { GoogleGenAI } from "@google/genai";
+import { wait } from "./utils";
+import {
+    API_KEY,
+    MODEL_NAME,
+    NUM_CHAPTERS,
+    REQUEST_WAIT_TIME,
+} from "../config";
 
-const API_URL =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyDLE2zK8EFkSnpmWSp6xAK2qdW2DI_Fvmw";
-const WAIT_TIME = 300;
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-export const NUM_ITERATIONS = 5;
-export const ROLL_BONUS = 3;
 export const genders = ["male", "female", "non-binary"] as const;
 export const traits = ["Brave", "Calm", "Charming", "Genius"] as const;
 export const intents = [
@@ -17,208 +25,164 @@ export const intents = [
     "To find a rumored shipwreck filled with treasure",
 ] as const;
 
-export class Game {
-    static instance?: Game;
+export let setup = $state<StorySetup>({
+    intent: intents[0],
+    boatName: "",
+    chars: [],
+});
 
-    pending = $state(false);
-    chars = $state<Character[]>([]);
-    boat = $state("");
-    intent = $state<Intent>(intents[0]);
-    title = $state("");
-    passage = $state("");
-    choices = $state<Choice[]>([]);
-    summaries = $state<string[]>([]);
-    progress = $state(0);
-    remainingChoices = $state(NUM_ITERATIONS);
-    choiceRoll = $state<RollResult | undefined>();
-    intentRoll = $state<RollResult | undefined>();
+export let data = $state<StoryData>({
+    pending: false,
+    progress: 0,
+    chapterNum: 0,
+    chapter: null,
+    pastChapters: [],
+    pastChoices: [],
+    intentRoll: null,
+    choiceRoll: null,
+});
 
-    private constructor() {}
+export async function advance(choice?: Choice) {
+    const nextChapterNum = data.chapterNum + 1;
 
-    static get(): Game {
-        if (!Game.instance) {
-            Game.instance = new Game();
-        }
-        return Game.instance;
+    if (!choice && nextChapterNum > 1) {
+        alert("Please make a choice.");
+        return;
     }
 
-    async continue(choice?: Choice) {
-        this.pending = true;
-        this.remainingChoices--;
+    data.pending = true;
 
-        const prompt = this.makePrompt(choice);
-        const json = await this.request(prompt);
+    let prompt: string;
+    if (!choice) {
+        prompt = makeIntroPrompt();
+    } else {
+        const croll = roll(100 - choice.risk);
+        const diff = croll.success ? choice.progress : choice.progress / -2;
+        data.choiceRoll = { ...croll, isSeen: false, progressDiff: diff };
+        data.progress += diff;
 
-        if ("choices" in json) {
-            this.choices = json.choices;
-            this.summaries.push(json.summary);
+        const choiceProper: PastChoice = {
+            body: choice.text,
+            success: croll.success,
+        };
+        data.pastChoices.push(choiceProper);
+
+        if (nextChapterNum < NUM_CHAPTERS) {
+            prompt = makeChapterPrompt(nextChapterNum, choiceProper);
         } else {
-            this.choices = [];
+            data.intentRoll = roll(data.progress);
+            prompt = makeEndingPrompt(choiceProper);
         }
-
-        this.title = json.title;
-        this.passage = json.passage;
-
-        this.pending = false;
     }
 
-    private roll(percentage: number, type: "choice" | "intent"): RollResult {
-        let required: number;
-        if (type === "intent") {
-            required = 20 - Math.ceil(percentage / 10) * 2;
-        } else {
-            required = Math.floor(percentage / 10) * 2;
-        }
-        required = Math.max(1, Math.min(20 - ROLL_BONUS, required));
-        const roll = Math.max(1, Math.floor(Math.random() * 20));
-        return { required, roll, success: roll >= required };
+    const response: AI_RESPONSE = await request(prompt);
+
+    console.log("PROMPT", prompt);
+    console.log("RESPONSE", response);
+
+    data.chapter = {
+        title: response.title,
+        body: response.body,
+    };
+
+    if ("choices" in response) {
+        data.chapter.choices = response.choices;
+        data.pastChapters.push(response.summary);
     }
 
-    private async request(prompt: string): Promise<AI_RESPONSE> {
-        const response = await fetch(API_URL, {
-            method: "POST",
-            mode: "cors",
-            headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-            }),
-        });
+    data.chapterNum = nextChapterNum;
 
-        const json = await response.json();
-        const text: string = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) {
-            console.error(json);
-            return wait(() => this.request(prompt), WAIT_TIME);
-        }
-
-        const aiJson = text.slice(8, -4).replaceAll("\n", "");
-        let aiResponse: AI_RESPONSE;
-        try {
-            aiResponse = JSON.parse(aiJson);
-        } catch (e) {
-            console.error(text);
-            return wait(() => this.request(prompt), WAIT_TIME);
-        }
-
-        return aiResponse;
-    }
-
-    private makePrompt(choice?: Choice) {
-        let prompt = `
-            ${this.chars.map((c) => `${c.name} (${c.gender})`).join(" and ")} are taking a trip to the Pacific Ocean.
-            They are traveling on their own boat named ${this.boat}.
-            Their intent of travel is ${this.intent}.
-        `;
-        if (choice) {
-            prompt += `
-                Their journey so far is as follows: ${this.summaries.map((t, i) => `${i + 1}) ${t}`).join(" ")}
-                And they made this choice after the last chapter: '${choice.text}'.
-            `;
-            if (choice.risk) {
-                const roll = this.roll(choice.risk, "choice");
-                this.choiceRoll = roll;
-                if (roll.success) {
-                    this.progress += choice.progress;
-                    this.choiceRoll.progressDiff = choice.progress;
-                    prompt +=
-                        "That was a risky choice and they managed to avoid the danger.";
-                } else {
-                    this.progress = Math.max(
-                        0,
-                        this.progress - choice.progress,
-                    );
-                    this.choiceRoll.progressDiff = Math.max(
-                        0 - this.progress,
-                        (this.progress - choice.progress) * -1,
-                    );
-                    prompt +=
-                        "That was a risky choice and they should face the bad outcome.";
-                }
-            } else {
-                this.choiceRoll = undefined;
-            }
-        }
-        if (!this.remainingChoices) {
-            const roll = this.roll(this.progress, "intent");
-            this.intentRoll = roll;
-            return (
-                prompt +
-                `Write a short (max 150 words) and satisfying ending to their travel. ${roll.success ? "They must accomplish their travel intent." : "They must fail in completing their travel intent."} Your response must be structured as a JSON in the following schema: {"title": TEXT, "passage": TEXT}.`
-            );
-        } else if (!this.passage) {
-            prompt +=
-                "Write a short introduction (max 100 words) to their travel and give it a title.";
-        } else {
-            prompt +=
-                "Write a short continuation (max 100 words) to their travel. Make sure to link smoothly from the previous chapter and their last choice.";
-            prompt +=
-                "And give the passage a title while considering the summaries of previous passages as well.";
-        }
-        prompt += `Use B1-level English for foreign EFL learner young adults. Focus on the Pacific Ocean and include relevant environmental details when appropriate. Do not include chapter numbers in the title.
-        Use HTML tags: <b>, <i>, and <br> for formatting. No dashes.
-        End with 2–6 meaningful choices that are relevant to their travel intent and have a purpose. Choices may reflect traits when suitable (${this.chars.map((c) => `${c.name}: ${c.trait}`).join(", ")}), or not (don't make up nonsense choices just to use the traits). Trait-based choices should have lower risk and/or higher progress levels (depending on the trait).
-        Each choice must:
-        - Advance story progress (0–100)
-        - Include a risk level (0–100) (They lose progress from total by the choice's progress amount if the risk roll fails)
-
-        ${this.remainingChoices ? `They are at ${this.progress}% progress and have ${this.remainingChoices} chapters left. No choice should bring total to 100% yet.` : `This is the final choice. Include at least one high-risk, high-reward option.`}
-        High-risk = high-reward. No need to show risk/progress in text. Keep choices concise.
-
-        Format the response as:
-        {
-          "title": TEXT,
-          "passage": TEXT,
-          "choices": [
-            {
-              "text": CHOICE_TEXT,
-              "progress": 0-100,
-              "risk": 0-100 
-            }
-          ],
-          "summary": very brief summary of this chapter ${this.summaries.length ? `and their last choice.` : ""}
-        }`;
-
-        return prompt.replaceAll(/\\n|[\s\s]{2}/g, "");
-    }
+    data.pending = false;
 }
 
-export function wait<T>(fn: () => T, time: number): Promise<T> {
-    return new Promise<T>((res) => {
-        setTimeout(() => {
-            res(fn());
-        }, time);
+async function request(prompt: string): Promise<AI_RESPONSE> {
+    const response = await ai.models.generateContent({
+        model: MODEL_NAME,
+        contents: prompt,
+        config: {
+            systemInstruction: systemPrompt,
+        },
     });
+    if (!response.text) {
+        console.error("NO RESPONSE TEXT", response);
+        return wait(() => request(prompt), REQUEST_WAIT_TIME);
+    }
+    const aiJson = response.text.slice(8, -4).replaceAll("\n", "");
+    let aiResponse: AI_RESPONSE;
+    try {
+        aiResponse = JSON.parse(aiJson);
+    } catch (_) {
+        console.error("COULD NOT PARSE AI RESPONSE", response.text, aiJson);
+        return wait(() => request(prompt), REQUEST_WAIT_TIME);
+    }
+    return aiResponse;
 }
 
-type AI_RESPONSE = AI_CONTINUATION | AI_ENDING;
+function roll(chance: number): RollResult {
+    const risk = 100 - chance;
+    const min = Math.min(20, 1 + Math.ceil(risk / 5));
+    const num = Math.ceil(Math.random() * 20);
+    return { success: num >= min, required: min, roll: num };
+}
 
-type AI_CONTINUATION = {
+type AI_RESPONSE = AI_CHAPTER | AI_ENDING;
+
+type AI_CHAPTER = {
     title: string;
-    passage: string;
-    choices: Choice[];
+    body: string;
     summary: string;
+    choices: Choice[];
 };
 
 type AI_ENDING = {
     title: string;
-    passage: string;
+    body: string;
 };
 
-export type RollResult = {
+export interface StorySetup {
+    boatName: string;
+    chars: Character[];
+    intent: Intent;
+}
+
+export interface StoryData {
+    pending: boolean;
+    progress: number;
+    chapterNum: number;
+    chapter: Chapter | null;
+    pastChapters: string[];
+    pastChoices: PastChoice[];
+    choiceRoll: ChoiceRollResult | null;
+    intentRoll: RollResult | null;
+}
+
+export interface Chapter {
+    title: string;
+    body: string;
+    choices?: Choice[];
+}
+
+export interface PastChoice {
+    body: string;
+    success: boolean;
+}
+
+export interface RollResult {
     success: boolean;
     roll: number;
     required: number;
-    progressDiff?: number;
-};
+}
 
-export type Choice = {
+export interface ChoiceRollResult extends RollResult {
+    isSeen: boolean;
+    progressDiff: number;
+}
+
+export interface Choice {
     text: string;
     progress: number;
     risk: number;
-};
+}
 
 export interface Character {
     name: string;

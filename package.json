@@ -22,5 +22,8 @@
         "typescript": "~5.7.2",
         "vite": "^6.2.0",
         "vite-plugin-singlefile": "^2.1.0"
+    },
+    "dependencies": {
+        "@google/genai": "^0.13.0"
     }
 }

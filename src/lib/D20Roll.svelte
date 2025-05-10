@@ -1,17 +1,17 @@
 <script lang="ts">
-    import { Game, type RollResult } from "./core.svelte";
     import rollImg from "../../assets/roll.webp";
     import ProgressIndicator from "./components/ProgressIndicator.svelte";
     import PlayButton from "./components/PlayButton.svelte";
     import { onMount } from "svelte";
     import { fade } from "svelte/transition";
+    import type { ChoiceRollResult } from "./core.svelte";
 
-    let { roll } = $props<{ roll: RollResult }>();
+    let { roll } = $props<{ roll: ChoiceRollResult }>();
 
     let pending = $state(true);
 
     function next() {
-        Game.get().choiceRoll = undefined;
+        roll.isSeen = true;
     }
 
     onMount(() => {
@@ -25,7 +25,7 @@
     class="z-40 absolute top-0 left-0 h-full w-full flex flex-col justify-between"
     in:fade
     out:fade
-    class:invisible={!roll}
+    class:invisible={roll.isSeen}
 >
     <div
         class="transition-all w-full text-lg leading-10 text-center"
@@ -41,9 +41,13 @@
     <div
         class="transition-all grow py-10 w-full flex flex-col gap-4 justify-center items-center"
     >
-        {#if pending}
-            <img src={rollImg} alt="dice roll" class="max-w-40 max-h-40" />
-        {:else}
+        <img
+            src={!pending ? "" : rollImg}
+            alt="dice roll"
+            class="max-w-40 max-h-40"
+            class:hidden={!pending}
+        />
+        {#if !pending}
             <div
                 class="font-black text-3xl"
                 class:success={!pending && roll.success}

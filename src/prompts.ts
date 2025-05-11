@@ -6,7 +6,7 @@ const endingResponseFormat = `Format the response as: { "title": STR, "body": ST
 
 export const systemPrompt = `You are a storywriter. Your audience are young adults.
     Don't include sensitive topics. Use B1 level of English.
-    Focus on the Pacific Ocean and include relevant information about it when approppriate.
+    Focus on the Pacific Ocean and include relevant information about their environment (if relevant).
     Use HTML tags <b>, <i> and <br> for formatting the body. Don't use <br> at the end.
     Your story will have ${NUM_CHAPTERS} chapters in total.
     Give the chapter a title (don't include chapter number).`;
@@ -19,23 +19,18 @@ export function makeIntroPrompt(): string {
     ${chapterResponseFormat}`;
 }
 
-export function makeChapterPrompt(
-    chapterNum: number,
-    lastChoice: PastChoice,
-): string {
+export function makeChapterPrompt(chapterNum: number): string {
     return `${makeBasePart()}
     ${makeSummaryPart()}
-    ${makeLastChoicePart(lastChoice)}
     Write Chapter ${chapterNum} to continue the story (max 80 words). 
     Write a brief summary of this chapter as well.
     ${makeChoicesPart(chapterNum)}
     ${chapterResponseFormat}`;
 }
 
-export function makeEndingPrompt(lastChoice: PastChoice): string {
+export function makeEndingPrompt(): string {
     return `${makeBasePart()}
     ${makeSummaryPart()}
-    ${makeLastChoicePart(lastChoice)}
     Write an ending to the story (max 120 words).
     ${data.intentRoll?.success ? "They must achieve their travel intent." : "They must fail their travel intent."}
     ${endingResponseFormat}`;
@@ -53,12 +48,8 @@ function makeSummaryPart(): string {
             const choice = data.pastChoices[i];
             return `Chapter ${i + 1}) Summary: "${body}" - Choice: "${choice.body}" ${choice.success ? "(Successfull choice)" : "(Failed choice)"}`;
         })
-        .join(" -- ");
-    return `Their story so far is as follows with their choices: ${sum}`;
-}
-
-function makeLastChoicePart(choice: PastChoice): string {
-    return `They made this choice at the end of the last chapter: "${choice.body}" and they ${choice.success ? "were successfull" : "failed"}.`;
+        .join("\n");
+    return `Their story so far is as follows with their choices:\n${sum}`;
 }
 
 function makeChoicesPart(chapterNum: number) {

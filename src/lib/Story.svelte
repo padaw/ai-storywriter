@@ -40,7 +40,7 @@
                     ({data.progress}%)</span
                 >
             </div>
-        {:else if data.chapterNum > 1}
+        {:else}
             <div>
                 Current Progress: <ProgressIndicator />
             </div>
